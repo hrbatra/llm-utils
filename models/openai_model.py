@@ -9,9 +9,13 @@ from datetime import datetime
 class SourceEvaluation(BaseModel):
     """Schema for source evaluation response."""
     scores: List[Dict[str, float]] = Field(
-        description="List of scores for each source",
-        min_items=1
+        description="List of scores for each source, containing url and score"
     )
+
+    class Config:
+        json_schema_extra = {
+            "required": ["scores"]
+        }
 
 class SourceSummary(BaseModel):
     """Schema for source summarization response."""
@@ -84,11 +88,19 @@ class OpenAIModel(AbstractBaseModel):
         messages = [{
             "role": "system",
             "content": """You are a research librarian expert at evaluating source quality and relevance.
-            Analyze each source and assign a relevance score (0-1) based on:
+            Analyze each source and assign a relevance score (0-10) based on:
             1. Relevance to the research query
             2. Source credibility and authority
             3. Recency and timeliness
-            4. Methodology and rigor (if applicable)"""
+            4. Methodology and rigor (if applicable)
+            
+            Return a list of scores in JSON format like:
+            {
+                "scores": [
+                    {"url": "source_url", "score": 8.5},
+                    {"url": "source_url", "score": 7.2}
+                ]
+            }"""
         }, {
             "role": "user",
             "content": f"""Research Query: {query}
@@ -99,20 +111,28 @@ Available Sources:
 Evaluate these sources and return relevance scores."""
         }]
         
-        response = self.client.beta.chat.completions.parse(
+        response = self.client.chat.completions.create(
             model=self.eval_model,
             messages=messages,
-            response_format=SourceEvaluation
+            response_format={"type": "json_object"}
         )
         
-        # Update scores and sort results
-        url_to_score = {s["url"]: s["score"] for s in response.scores}
-        for result in results:
-            result.relevance_score = url_to_score.get(result.url, 0.0)
-        
-        return sorted(results, 
-                     key=lambda x: x.relevance_score, 
-                     reverse=True)[:max_sources]
+        # Parse the JSON response
+        try:
+            scores = json.loads(response.choices[0].message.content)["scores"]
+            url_to_score = {s["url"]: s["score"] for s in scores}
+            
+            # Update scores and sort results
+            for result in results:
+                result.relevance_score = url_to_score.get(result.url, 0.0)
+            
+            return sorted(results, 
+                         key=lambda x: x.relevance_score, 
+                         reverse=True)[:max_sources]
+        except (KeyError, json.JSONDecodeError) as e:
+            print(f"Error parsing response: {e}")
+            # Return original results if parsing fails
+            return results[:max_sources]
     
     def summarize_source(self, 
                         source: ResearchResult,

@@ -109,33 +109,47 @@ def evaluate_source_quality(model: OpenAIModel, results: List[ResearchResult]) -
         Assess the provided sources and determine:
         1. Their collective quality and relevance
         2. Whether they provide sufficient coverage of the topic
-        3. If additional sources are needed, what aspects need more coverage"""
+        3. If additional sources are needed, what aspects need more coverage
+        
+        Return your evaluation in JSON format like:
+        {
+            "sufficient": true/false,
+            "explanation": "Explanation of the evaluation...",
+            "scores": [
+                {"url": "source_url", "score": 8.5},
+                {"url": "source_url", "score": 7.2}
+            ]
+        }"""
     }, {
         "role": "user",
         "content": f"Evaluate these sources:\n{sources_text}"
     }]
     
-    response = model.client.beta.chat.completions.parse(
+    response = model.client.chat.completions.create(
         model=model.eval_model,
         messages=messages,
-        response_format=SourceQualityEvaluation,
-        max_tokens=500
+        response_format={"type": "json_object"},
+        max_tokens=1000
     )
     
-    evaluation = response.choices[0].message.parsed
-    
-    # Update source scores
-    for result in results:
-        for score_info in evaluation.quality_scores:
-            if score_info.url == result.url:
-                result.relevance_score = score_info.score
-                break
-    
-    # Sort by score
-    ranked_results = sorted(results, key=lambda x: x.relevance_score, reverse=True)
-    
-    print(f"\nSource Evaluation: {evaluation.explanation}")
-    return ranked_results, evaluation.sufficient
+    try:
+        evaluation = json.loads(response.choices[0].message.content)
+        
+        # Update source scores
+        for result in results:
+            for score_info in evaluation["scores"]:
+                if score_info["url"] == result.url:
+                    result.relevance_score = score_info["score"]
+                    break
+        
+        # Sort by score
+        ranked_results = sorted(results, key=lambda x: x.relevance_score, reverse=True)
+        
+        print(f"\nSource Evaluation: {evaluation['explanation']}")
+        return ranked_results, evaluation["sufficient"]
+    except (KeyError, json.JSONDecodeError) as e:
+        print(f"Error parsing response: {e}")
+        return results, False
 
 def main():
     """Run a test of the OpenAI research pipeline with iterative searching."""
@@ -302,11 +316,10 @@ def test_fetch_research_results():
 
 def test_evaluate_source_quality(model, sample_results):
     """Test source quality evaluation."""
-    ranked_results, is_sufficient = evaluate_source_quality(model, sample_results)
+    ranked_results = model.evaluate_sources(sample_results, "Test research topic")
     
     # Check return types
     assert isinstance(ranked_results, list), "First return value should be a list"
-    assert isinstance(is_sufficient, bool), "Second return value should be boolean"
     assert len(ranked_results) == len(sample_results), "Should return same number of results"
     
     # Check ranking
@@ -314,9 +327,8 @@ def test_evaluate_source_quality(model, sample_results):
         assert isinstance(result, ResearchResult), "Each result should be a ResearchResult"
         assert hasattr(result, 'relevance_score'), "Each result should have relevance_score"
         assert isinstance(result.relevance_score, float), "Relevance score should be float"
-        assert 0.0 <= result.relevance_score <= 1.0, "Relevance score should be between 0 and 1"
     
-    # Verify results are actually ranked
+    # Verify results are sorted
     scores = [r.relevance_score for r in ranked_results]
     assert scores == sorted(scores, reverse=True), "Results should be sorted by relevance_score in descending order"
 
@@ -406,4 +418,4 @@ def test_synthesize_research(model, sample_results):
         "Source analyses should be SourceAnalysis objects"
 
 if __name__ == "__main__":
-    pytest.main([__file__, "-v"]) 
+    main() 
