@@ -1,0 +1,266 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ report.title }}</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        /* Same CSS as basic template plus D3 specific styles */
+        .timeline-viz {
+            width: 100%;
+            height: 400px;
+            margin: 40px 0;
+        }
+        .findings-network {
+            width: 100%;
+            height: 600px;
+            margin: 40px 0;
+        }
+    </style>
+</head>
+<body>
+    <!-- Same basic structure as basic template -->
+    <div class="report-header">
+        <h1>{{ report.title }}</h1>
+    </div>
+    
+    <div class="summary">
+        <h2>Executive Summary</h2>
+        <p>{{ report.summary }}</p>
+    </div>
+    
+    <!-- Interactive timeline visualization -->
+    <h2>Interactive Timeline</h2>
+    <div id="timeline" class="timeline-viz"></div>
+    
+    <!-- Interactive findings network -->
+    <h2>Findings Network</h2>
+    <div id="network" class="findings-network"></div>
+    
+    <!-- Rest of the report content -->
+    <div class="key-findings">
+        <h2>Key Findings</h2>
+        {% for finding in report.key_findings %}
+        <div class="finding">
+            <h3>{{ finding.finding }}</h3>
+            {% for source in finding.supporting_sources %}
+            <div class="source">
+                <a href="{{ source.url }}" target="_blank">{{ source.title }}</a>
+                <div class="quote">{{ source.quote }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+    </div>
+    
+    <div class="metadata">
+        <h3>About this Report</h3>
+        <p>Query: {{ report.metadata.query }}</p>
+        <p>Sources analyzed: {{ report.metadata.sources_analyzed }}</p>
+        <p>Date range: {{ report.metadata.date_range.earliest }} to {{ report.metadata.date_range.latest }}</p>
+    </div>
+    
+    <script>
+        // Parse the report data
+        const report = {{ report|tojson|safe }};
+        
+        // Timeline Visualization
+        function createTimeline() {
+            const margin = {top: 20, right: 20, bottom: 30, left: 50};
+            const width = document.getElementById('timeline').offsetWidth - margin.left - margin.right;
+            const height = 400 - margin.top - margin.bottom;
+            
+            const svg = d3.select('#timeline')
+                .append('svg')
+                .attr('width', width + margin.left + margin.right)
+                .attr('height', height + margin.top + margin.bottom)
+                .append('g')
+                .attr('transform', `translate(${margin.left},${margin.top})`);
+            
+            // Parse dates
+            const timelineData = report.timeline.map(d => ({
+                ...d,
+                dateObj: new Date(d.date)
+            }));
+            
+            // Create scales
+            const x = d3.scaleTime()
+                .domain(d3.extent(timelineData, d => d.dateObj))
+                .range([0, width]);
+                
+            // Add axis
+            svg.append('g')
+                .attr('transform', `translate(0,${height})`)
+                .call(d3.axisBottom(x));
+            
+            // Add events
+            const events = svg.selectAll('.event')
+                .data(timelineData)
+                .enter()
+                .append('g')
+                .attr('class', 'event')
+                .attr('transform', d => `translate(${x(d.dateObj)},0)`);
+            
+            events.append('circle')
+                .attr('r', 5)
+                .attr('cy', height/2)
+                .style('fill', '#4CAF50');
+                
+            events.append('text')
+                .attr('y', height/2 - 10)
+                .attr('text-anchor', 'middle')
+                .text(d => d.event)
+                .call(wrap, 100);
+        }
+        
+        // Findings Network Visualization
+        function createNetwork() {
+            const width = document.getElementById('network').offsetWidth;
+            const height = 600;
+            
+            const svg = d3.select('#network')
+                .append('svg')
+                .attr('width', width)
+                .attr('height', height);
+            
+            // Create nodes for findings and sources
+            const nodes = [];
+            const links = [];
+            
+            // Add finding nodes
+            report.key_findings.forEach((finding, i) => {
+                nodes.push({
+                    id: `finding-${i}`,
+                    type: 'finding',
+                    text: finding.finding
+                });
+                
+                // Add source nodes and links
+                finding.supporting_sources.forEach((source, j) => {
+                    const sourceId = `source-${i}-${j}`;
+                    nodes.push({
+                        id: sourceId,
+                        type: 'source',
+                        text: source.title,
+                        url: source.url
+                    });
+                    links.push({
+                        source: `finding-${i}`,
+                        target: sourceId
+                    });
+                });
+            });
+            
+            // Create force simulation
+            const simulation = d3.forceSimulation(nodes)
+                .force('link', d3.forceLink(links).id(d => d.id))
+                .force('charge', d3.forceManyBody().strength(-300))
+                .force('center', d3.forceCenter(width/2, height/2));
+            
+            // Add links
+            const link = svg.append('g')
+                .selectAll('line')
+                .data(links)
+                .enter()
+                .append('line')
+                .style('stroke', '#999')
+                .style('stroke-width', 1);
+            
+            // Add nodes
+            const node = svg.append('g')
+                .selectAll('circle')
+                .data(nodes)
+                .enter()
+                .append('circle')
+                .attr('r', d => d.type === 'finding' ? 10 : 5)
+                .style('fill', d => d.type === 'finding' ? '#4CAF50' : '#2196F3')
+                .call(d3.drag()
+                    .on('start', dragstarted)
+                    .on('drag', dragged)
+                    .on('end', dragended));
+            
+            // Add labels
+            const label = svg.append('g')
+                .selectAll('text')
+                .data(nodes)
+                .enter()
+                .append('text')
+                .text(d => d.text)
+                .attr('font-size', d => d.type === 'finding' ? '12px' : '10px')
+                .attr('dx', 12)
+                .attr('dy', 4);
+            
+            // Add tooltips
+            node.append('title')
+                .text(d => d.text);
+            
+            // Update positions
+            simulation.on('tick', () => {
+                link
+                    .attr('x1', d => d.source.x)
+                    .attr('y1', d => d.source.y)
+                    .attr('x2', d => d.target.x)
+                    .attr('y2', d => d.target.y);
+                
+                node
+                    .attr('cx', d => d.x)
+                    .attr('cy', d => d.y);
+                
+                label
+                    .attr('x', d => d.x)
+                    .attr('y', d => d.y);
+            });
+            
+            // Drag functions
+            function dragstarted(event) {
+                if (!event.active) simulation.alphaTarget(0.3).restart();
+                event.subject.fx = event.subject.x;
+                event.subject.fy = event.subject.y;
+            }
+            
+            function dragged(event) {
+                event.subject.fx = event.x;
+                event.subject.fy = event.y;
+            }
+            
+            function dragended(event) {
+                if (!event.active) simulation.alphaTarget(0);
+                event.subject.fx = null;
+                event.subject.fy = null;
+            }
+        }
+        
+        // Text wrapping function
+        function wrap(text, width) {
+            text.each(function() {
+                const text = d3.select(this);
+                const words = text.text().split(/\s+/).reverse();
+                let word;
+                let line = [];
+                let lineNumber = 0;
+                const lineHeight = 1.1;
+                const y = text.attr('y');
+                const dy = parseFloat(text.attr('dy')) || 0;
+                let tspan = text.text(null).append('tspan').attr('x', 0).attr('y', y).attr('dy', dy + 'em');
+                
+                while (word = words.pop()) {
+                    line.push(word);
+                    tspan.text(line.join(' '));
+                    if (tspan.node().getComputedTextLength() > width) {
+                        line.pop();
+                        tspan.text(line.join(' '));
+                        line = [word];
+                        tspan = text.append('tspan').attr('x', 0).attr('y', y).attr('dy', ++lineNumber * lineHeight + dy + 'em').text(word);
+                    }
+                }
+            });
+        }
+        
+        // Create visualizations when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            createTimeline();
+            createNetwork();
+        });
+    </script>
+</body>
+</html>

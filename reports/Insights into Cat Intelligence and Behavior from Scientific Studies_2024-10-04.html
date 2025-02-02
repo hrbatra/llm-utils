@@ -1,0 +1,286 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Insights into Cat Intelligence and Behavior from Scientific Studies</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        /* Same CSS as basic template plus D3 specific styles */
+        .timeline-viz {
+            width: 100%;
+            height: 400px;
+            margin: 40px 0;
+        }
+        .findings-network {
+            width: 100%;
+            height: 600px;
+            margin: 40px 0;
+        }
+    </style>
+</head>
+<body>
+    <!-- Same basic structure as basic template -->
+    <div class="report-header">
+        <h1>Insights into Cat Intelligence and Behavior from Scientific Studies</h1>
+    </div>
+    
+    <div class="summary">
+        <h2>Executive Summary</h2>
+        <p>This research report delves into the scientific studies that explore the intelligence of cats and their unique behavioral traits. Key findings illustrate cats' complex personality traits, social intelligence, and ability to form associations, shedding light on their behavioral patterns and interactions with humans.</p>
+    </div>
+    
+    <!-- Interactive timeline visualization -->
+    <h2>Interactive Timeline</h2>
+    <div id="timeline" class="timeline-viz"></div>
+    
+    <!-- Interactive findings network -->
+    <h2>Findings Network</h2>
+    <div id="network" class="findings-network"></div>
+    
+    <!-- Rest of the report content -->
+    <div class="key-findings">
+        <h2>Key Findings</h2>
+        
+        <div class="finding">
+            <h3>Cats possess distinct personality traits classified as the 'Feline Five': Neuroticism, Extraversion, Dominance, Impulsiveness, and Agreeableness.</h3>
+            
+            <div class="source">
+                <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5568325/" target="_blank">The ‘Feline Five’: An exploration of personality in pet cats (Felis catus)</a>
+                <div class="quote">Five reliable personality factors were found using principal axis factor analysis: Neuroticism, Extraversion, Dominance, Impulsiveness, and Agreeableness.</div>
+            </div>
+            
+        </div>
+        
+        <div class="finding">
+            <h3>Cats demonstrate social intelligence and responsiveness to human cues, distinct from dog-like social behaviors.</h3>
+            
+            <div class="source">
+                <a href="https://www.jstage.jst.go.jp/article/janip/59/2/59_59.2.1/_article/-char/ja/" target="_blank">How should we study social intelligence in cats</a>
+                <div class="quote">Several studies have provided evidence that cats possess social intelligence. Since their intelligence is considered to be expressed in different contexts from that of dogs, methods different from those used to study dogs are needed.</div>
+            </div>
+            
+        </div>
+        
+        <div class="finding">
+            <h3>Cats have the ability to form picture-word associations, a trait they share with human infants and other species.</h3>
+            
+            <div class="source">
+                <a href="https://www.nature.com/articles/s41598-024-74006-2" target="_blank">Rapid formation of picture-word association in cats</a>
+                <div class="quote">Recent research has further highlighted... cats can also retrieve social information from auditory cues.</div>
+            </div>
+            
+        </div>
+        
+    </div>
+    
+    <div class="metadata">
+        <h3>About this Report</h3>
+        <p>Query: scientific studies on cat intelligence and unique behaviors</p>
+        <p>Sources analyzed: 3</p>
+        <p>Date range: 2009-11-25 to 2024-10-04</p>
+    </div>
+    
+    <script>
+        // Parse the report data
+        const report = {"key_findings": [{"finding": "Cats possess distinct personality traits classified as the \u0027Feline Five\u0027: Neuroticism, Extraversion, Dominance, Impulsiveness, and Agreeableness.", "supporting_sources": [{"quote": "Five reliable personality factors were found using principal axis factor analysis: Neuroticism, Extraversion, Dominance, Impulsiveness, and Agreeableness.", "title": "The \u2018Feline Five\u2019: An exploration of personality in pet cats (Felis catus)", "url": "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5568325/"}]}, {"finding": "Cats demonstrate social intelligence and responsiveness to human cues, distinct from dog-like social behaviors.", "supporting_sources": [{"quote": "Several studies have provided evidence that cats possess social intelligence. Since their intelligence is considered to be expressed in different contexts from that of dogs, methods different from those used to study dogs are needed.", "title": "How should we study social intelligence in cats", "url": "https://www.jstage.jst.go.jp/article/janip/59/2/59_59.2.1/_article/-char/ja/"}]}, {"finding": "Cats have the ability to form picture-word associations, a trait they share with human infants and other species.", "supporting_sources": [{"quote": "Recent research has further highlighted... cats can also retrieve social information from auditory cues.", "title": "Rapid formation of picture-word association in cats", "url": "https://www.nature.com/articles/s41598-024-74006-2"}]}], "metadata": {"date_range": {"earliest": "2009-11-25", "latest": "2024-10-04"}, "query": "scientific studies on cat intelligence and unique behaviors", "sources_analyzed": "3"}, "summary": "This research report delves into the scientific studies that explore the intelligence of cats and their unique behavioral traits. Key findings illustrate cats\u0027 complex personality traits, social intelligence, and ability to form associations, shedding light on their behavioral patterns and interactions with humans.", "timeline": [{"date": "2009-11-25", "event": "Publication of research on the social intelligence of cats, proposing unique methods to study cat behaviors.", "significance": "It shifted the focus towards understanding cats\u0027 social intelligence distinct from dogs."}, {"date": "2023-02-06", "event": "Introduction of the \u0027Feline Five\u0027 personality traits for cats.", "significance": "This study provided a framework for understanding cat behavior and potential applications for welfare improvements."}, {"date": "2024-10-04", "event": "Study revealing the ability of cats to form picture-word associations.", "significance": "It evidenced advanced cognitive abilities in cats, akin to those of human infants."}], "title": "Insights into Cat Intelligence and Behavior from Scientific Studies"};
+        
+        // Timeline Visualization
+        function createTimeline() {
+            const margin = {top: 20, right: 20, bottom: 30, left: 50};
+            const width = document.getElementById('timeline').offsetWidth - margin.left - margin.right;
+            const height = 400 - margin.top - margin.bottom;
+            
+            const svg = d3.select('#timeline')
+                .append('svg')
+                .attr('width', width + margin.left + margin.right)
+                .attr('height', height + margin.top + margin.bottom)
+                .append('g')
+                .attr('transform', `translate(${margin.left},${margin.top})`);
+            
+            // Parse dates
+            const timelineData = report.timeline.map(d => ({
+                ...d,
+                dateObj: new Date(d.date)
+            }));
+            
+            // Create scales
+            const x = d3.scaleTime()
+                .domain(d3.extent(timelineData, d => d.dateObj))
+                .range([0, width]);
+                
+            // Add axis
+            svg.append('g')
+                .attr('transform', `translate(0,${height})`)
+                .call(d3.axisBottom(x));
+            
+            // Add events
+            const events = svg.selectAll('.event')
+                .data(timelineData)
+                .enter()
+                .append('g')
+                .attr('class', 'event')
+                .attr('transform', d => `translate(${x(d.dateObj)},0)`);
+            
+            events.append('circle')
+                .attr('r', 5)
+                .attr('cy', height/2)
+                .style('fill', '#4CAF50');
+                
+            events.append('text')
+                .attr('y', height/2 - 10)
+                .attr('text-anchor', 'middle')
+                .text(d => d.event)
+                .call(wrap, 100);
+        }
+        
+        // Findings Network Visualization
+        function createNetwork() {
+            const width = document.getElementById('network').offsetWidth;
+            const height = 600;
+            
+            const svg = d3.select('#network')
+                .append('svg')
+                .attr('width', width)
+                .attr('height', height);
+            
+            // Create nodes for findings and sources
+            const nodes = [];
+            const links = [];
+            
+            // Add finding nodes
+            report.key_findings.forEach((finding, i) => {
+                nodes.push({
+                    id: `finding-${i}`,
+                    type: 'finding',
+                    text: finding.finding
+                });
+                
+                // Add source nodes and links
+                finding.supporting_sources.forEach((source, j) => {
+                    const sourceId = `source-${i}-${j}`;
+                    nodes.push({
+                        id: sourceId,
+                        type: 'source',
+                        text: source.title,
+                        url: source.url
+                    });
+                    links.push({
+                        source: `finding-${i}`,
+                        target: sourceId
+                    });
+                });
+            });
+            
+            // Create force simulation
+            const simulation = d3.forceSimulation(nodes)
+                .force('link', d3.forceLink(links).id(d => d.id))
+                .force('charge', d3.forceManyBody().strength(-300))
+                .force('center', d3.forceCenter(width/2, height/2));
+            
+            // Add links
+            const link = svg.append('g')
+                .selectAll('line')
+                .data(links)
+                .enter()
+                .append('line')
+                .style('stroke', '#999')
+                .style('stroke-width', 1);
+            
+            // Add nodes
+            const node = svg.append('g')
+                .selectAll('circle')
+                .data(nodes)
+                .enter()
+                .append('circle')
+                .attr('r', d => d.type === 'finding' ? 10 : 5)
+                .style('fill', d => d.type === 'finding' ? '#4CAF50' : '#2196F3')
+                .call(d3.drag()
+                    .on('start', dragstarted)
+                    .on('drag', dragged)
+                    .on('end', dragended));
+            
+            // Add labels
+            const label = svg.append('g')
+                .selectAll('text')
+                .data(nodes)
+                .enter()
+                .append('text')
+                .text(d => d.text)
+                .attr('font-size', d => d.type === 'finding' ? '12px' : '10px')
+                .attr('dx', 12)
+                .attr('dy', 4);
+            
+            // Add tooltips
+            node.append('title')
+                .text(d => d.text);
+            
+            // Update positions
+            simulation.on('tick', () => {
+                link
+                    .attr('x1', d => d.source.x)
+                    .attr('y1', d => d.source.y)
+                    .attr('x2', d => d.target.x)
+                    .attr('y2', d => d.target.y);
+                
+                node
+                    .attr('cx', d => d.x)
+                    .attr('cy', d => d.y);
+                
+                label
+                    .attr('x', d => d.x)
+                    .attr('y', d => d.y);
+            });
+            
+            // Drag functions
+            function dragstarted(event) {
+                if (!event.active) simulation.alphaTarget(0.3).restart();
+                event.subject.fx = event.subject.x;
+                event.subject.fy = event.subject.y;
+            }
+            
+            function dragged(event) {
+                event.subject.fx = event.x;
+                event.subject.fy = event.y;
+            }
+            
+            function dragended(event) {
+                if (!event.active) simulation.alphaTarget(0);
+                event.subject.fx = null;
+                event.subject.fy = null;
+            }
+        }
+        
+        // Text wrapping function
+        function wrap(text, width) {
+            text.each(function() {
+                const text = d3.select(this);
+                const words = text.text().split(/\s+/).reverse();
+                let word;
+                let line = [];
+                let lineNumber = 0;
+                const lineHeight = 1.1;
+                const y = text.attr('y');
+                const dy = parseFloat(text.attr('dy')) || 0;
+                let tspan = text.text(null).append('tspan').attr('x', 0).attr('y', y).attr('dy', dy + 'em');
+                
+                while (word = words.pop()) {
+                    line.push(word);
+                    tspan.text(line.join(' '));
+                    if (tspan.node().getComputedTextLength() > width) {
+                        line.pop();
+                        tspan.text(line.join(' '));
+                        line = [word];
+                        tspan = text.append('tspan').attr('x', 0).attr('y', y).attr('dy', ++lineNumber * lineHeight + dy + 'em').text(word);
+                    }
+                }
+            });
+        }
+        
+        // Create visualizations when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            createTimeline();
+            createNetwork();
+        });
+    </script>
+</body>
+</html>
